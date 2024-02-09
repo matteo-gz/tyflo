@@ -1,7 +1,6 @@
 package socks5
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -39,6 +38,10 @@ var (
 	ErrHostInvalid       = errors.New("host invalid")
 )
 
+type Message interface {
+	Decode(r io.Reader) (err error)
+	Bytes() []byte
+}
 type ClientNegotiateReq struct {
 	Version  byte
 	NMethods byte
@@ -48,7 +51,7 @@ type ClientNegotiateReq struct {
 func NewClientNegotiateReq() *ClientNegotiateReq {
 	return &ClientNegotiateReq{}
 }
-func (req *ClientNegotiateReq) Get(r io.Reader) (err error) {
+func (req *ClientNegotiateReq) Decode(r io.Reader) (err error) {
 	buf := make([]byte, 2)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
@@ -72,14 +75,14 @@ func (req *ClientNegotiateReq) Get(r io.Reader) (err error) {
 	req.Methods = buf
 	return
 }
-func (req *ClientNegotiateReq) GetNoAuthenticationRequired() []byte {
+func (req *ClientNegotiateReq) SetNoAuthenticationRequired() {
 	req.NMethods = 1
 	req.Methods = []byte{MethodNoAuthenticationRequired}
 	req.Version = Version5
+}
+func (req *ClientNegotiateReq) Bytes() []byte {
 	data := []byte{req.Version, req.NMethods}
-	for _, v := range req.Methods {
-		data = append(data, v)
-	}
+	data = append(data, req.Methods...)
 	return data
 }
 
@@ -91,14 +94,14 @@ type ServerNegotiateReply struct {
 func NewServerNegotiateReply() *ServerNegotiateReply {
 	return &ServerNegotiateReply{}
 }
-func (s *ServerNegotiateReply) Get() []byte {
+func (s *ServerNegotiateReply) Bytes() []byte {
 	return []byte{s.Version, s.Method}
 }
 func (s *ServerNegotiateReply) SetNotPassword() {
 	s.Version = Version5
 	s.Method = MethodNoAuthenticationRequired
 }
-func (s *ServerNegotiateReply) Decode(ctx context.Context, r io.Reader) error {
+func (s *ServerNegotiateReply) Decode(r io.Reader) error {
 	buf := make([]byte, 2)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
@@ -137,7 +140,7 @@ func (c *ClientRequest) String() string {
 		c.host,
 	)
 }
-func (c *ClientRequest) Get(ctx context.Context, r io.Reader) (err error) {
+func (c *ClientRequest) Decode(r io.Reader) (err error) {
 	buf := make([]byte, 4)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
@@ -198,7 +201,7 @@ func (c *ClientRequest) Get(ctx context.Context, r io.Reader) (err error) {
 func (c *ClientRequest) GetAddress() string {
 	return net.JoinHostPort(c.host, strconv.Itoa(int(c.DSTPort)))
 }
-func (c *ClientRequest) Decode(address string) (err error) {
+func (c *ClientRequest) SetCmdConnect(address string) (err error) {
 	c.VER = Version5
 	c.CMD = CmdCONNECT
 	c.RSV = RSVDefault
@@ -231,7 +234,7 @@ func (c *ClientRequest) Decode(address string) (err error) {
 	}
 	return nil
 }
-func (c *ClientRequest) bytes() []byte {
+func (c *ClientRequest) Bytes() []byte {
 	d := []byte{
 		c.VER,
 		c.CMD,
@@ -258,7 +261,7 @@ type ServerReply struct {
 func NewServerReply() *ServerReply {
 	return &ServerReply{}
 }
-func (s *ServerReply) Get() []byte {
+func (s *ServerReply) Bytes() []byte {
 	d := []byte{
 		s.VER,
 		s.REP,
@@ -283,7 +286,7 @@ func (s *ServerReply) SetConnectDirectReply() {
 	}
 	s.BNDPort = 0
 }
-func (s *ServerReply) decode(r io.Reader) (err error) {
+func (s *ServerReply) Decode(r io.Reader) (err error) {
 	buf := make([]byte, 4)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {

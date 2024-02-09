@@ -71,19 +71,19 @@ func (s *serverSession) handle(ctxP context.Context) {
 
 func (s *serverSession) negotiate(ctx context.Context) (req *ClientNegotiateReq, err error) {
 	req = NewClientNegotiateReq()
-	err = req.Get(s.c)
+	err = req.Decode(s.c)
 	return
 }
 
 func (s *serverSession) authenticate(ctx context.Context) error {
 	reply := NewServerNegotiateReply()
 	reply.SetNotPassword()
-	_, err := s.c.Write(reply.Get())
+	_, err := s.c.Write(reply.Bytes())
 	return err
 }
 func (s *serverSession) handleRequest(ctx context.Context) (req *ClientRequest, err error) {
 	req = NewClientRequest()
-	err = req.Get(ctx, s.c)
+	err = req.Decode(s.c)
 	return
 }
 
@@ -122,7 +122,7 @@ func (s *serverSession) copy(ctx context.Context, dst io.Writer, src io.Reader) 
 func (s *serverSession) connect(ctx context.Context) error {
 	reply := NewServerReply()
 	reply.SetConnectDirectReply()
-	n, err := s.c.Write(reply.Get())
+	n, err := s.c.Write(reply.Bytes())
 	if err != nil {
 		return err
 	}
