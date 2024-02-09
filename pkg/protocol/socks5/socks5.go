@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"strconv"
 )
@@ -35,6 +36,7 @@ var (
 	ErrRsvInvalid        = errors.New("request rsv invalid")
 	ErrATYPInvalid       = errors.New("request ATYP invalid")
 	ErrMethodNotSupport  = errors.New("method not support")
+	ErrHostInvalid       = errors.New("host invalid")
 )
 
 type ClientNegotiateReq struct {
@@ -163,7 +165,12 @@ func (c *ClientRequest) Get(ctx context.Context, r io.Reader) (err error) {
 	case ATYPIPV4Address:
 		addrLen = net.IPv4len
 	case ATYPDomainName:
-		addrLen = int(buf[4])
+		buf = make([]byte, 1)
+		_, err = io.ReadFull(r, buf)
+		if err != nil {
+			return
+		}
+		addrLen = int(buf[0])
 	case ATYPIPV6Address:
 		addrLen = net.IPv6len
 	default:
@@ -191,6 +198,52 @@ func (c *ClientRequest) Get(ctx context.Context, r io.Reader) (err error) {
 func (c *ClientRequest) GetAddress() string {
 	return net.JoinHostPort(c.host, strconv.Itoa(int(c.DSTPort)))
 }
+func (c *ClientRequest) Decode(address string) (err error) {
+	c.VER = Version5
+	c.CMD = CmdCONNECT
+	c.RSV = RSVDefault
+	host, portStr, err := net.SplitHostPort(address)
+	if err != nil {
+		return
+	}
+	portNum, err := strconv.Atoi(portStr)
+	if err != nil {
+		return
+	}
+	c.DSTPort = uint16(portNum)
+	if ip := net.ParseIP(host); ip != nil {
+		if ipv4 := ip.To4(); ipv4 != nil {
+			c.ATYP = ATYPIPV4Address
+			c.DSTAddr = ip
+		} else {
+			c.ATYP = ATYPIPV6Address
+			c.DSTAddr = ip
+		}
+	} else {
+		c.ATYP = ATYPDomainName
+		hl := len(host)
+		if hl > math.MaxUint8 {
+			err = ErrHostInvalid
+			return
+		}
+		c.DSTAddr = append(c.DSTAddr, uint8(hl))
+		c.DSTAddr = append(c.DSTAddr, []byte(host)...)
+	}
+	return nil
+}
+func (c *ClientRequest) bytes() []byte {
+	d := []byte{
+		c.VER,
+		c.CMD,
+		c.RSV,
+		c.ATYP,
+	}
+	d = append(d, c.DSTAddr...)
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, c.DSTPort)
+	d = append(d, b...)
+	return d
+}
 
 type ServerReply struct {
 	VER     byte
@@ -199,6 +252,7 @@ type ServerReply struct {
 	ATYP    byte
 	BNDAddr []byte
 	BNDPort uint16
+	host    string
 }
 
 func NewServerReply() *ServerReply {
@@ -211,9 +265,7 @@ func (s *ServerReply) Get() []byte {
 		s.RSV,
 		s.ATYP,
 	}
-	for _, v := range s.BNDAddr {
-		d = append(d, v)
-	}
+	d = append(d, s.BNDAddr...)
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, s.BNDPort)
 	d = append(d, b...)
@@ -230,4 +282,50 @@ func (s *ServerReply) SetConnectDirectReply() {
 		s.BNDAddr = append(s.BNDAddr, 0)
 	}
 	s.BNDPort = 0
+}
+func (s *ServerReply) decode(r io.Reader) (err error) {
+	buf := make([]byte, 4)
+	_, err = io.ReadFull(r, buf)
+	if err != nil {
+		return
+	}
+	s.VER = buf[0]
+	if s.VER != Version5 {
+		return ErrVersionNotV5
+	}
+	s.REP = buf[1]
+	s.RSV = buf[2]
+	if s.RSV != RSVDefault {
+		return ErrRsvInvalid
+	}
+	s.ATYP = buf[3]
+	var addrLen int
+	switch s.ATYP {
+	case ATYPIPV4Address:
+		addrLen = net.IPv4len
+	case ATYPDomainName:
+		addrLen = int(buf[4])
+	case ATYPIPV6Address:
+		addrLen = net.IPv6len
+	default:
+		return ErrATYPInvalid
+	}
+	buf = make([]byte, addrLen)
+	_, err = io.ReadFull(r, buf)
+	if err != nil {
+		return
+	}
+	if s.ATYP == ATYPDomainName {
+		s.host = string(buf)
+	} else {
+		s.host = net.IP(buf).String()
+	}
+	s.BNDAddr = buf
+	buf = make([]byte, 2)
+	_, err = io.ReadFull(r, buf)
+	if err != nil {
+		return
+	}
+	s.BNDPort = binary.BigEndian.Uint16(buf)
+	return nil
 }
