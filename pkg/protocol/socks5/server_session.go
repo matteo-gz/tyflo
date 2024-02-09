@@ -15,6 +15,8 @@ var (
 	ErrCacheType = errors.New("cache type err")
 )
 
+const dialTimeout = 5 * time.Second
+
 type serverSession struct {
 	c       net.Conn
 	log     logger.Logger
@@ -44,8 +46,7 @@ func (s *serverSession) handle(ctxP context.Context) {
 			return
 		}
 		s.log.DebugF(ctx, fmt.Sprintf("clientVerReq:%#v", clientVerReq))
-		err = s.authenticate(ctx)
-		if err != nil {
+		if err = s.authenticate(ctx); err != nil {
 			s.log.ErrorF(ctx, "authenticate", err)
 			return
 		}
@@ -104,9 +105,15 @@ func (s *serverSession) relay(ctx context.Context, dst, src io.ReadWriteCloser) 
 	err := eg.Wait()
 	if err != nil {
 		s.log.ErrorF(ctx, "io done", err)
-		return
+	} else {
+		s.log.DebugF(ctx, "io done")
 	}
-	s.log.DebugF(ctx, "io done")
+	if err = dst.Close(); err != nil {
+		s.log.ErrorF(ctx, "dst", err)
+	}
+	if err = src.Close(); err != nil {
+		s.log.ErrorF(ctx, "src", err)
+	}
 }
 
 func (s *serverSession) copy(ctx context.Context, dst io.Writer, src io.Reader) error {
@@ -142,7 +149,7 @@ func (s *serverSession) connect(ctx context.Context) error {
 }
 func dial(ctx context.Context, address string) (net.Conn, error) {
 	d := &net.Dialer{
-		Timeout: 5 * time.Second,
+		Timeout: dialTimeout,
 	}
 	return d.DialContext(ctx, tcp, address)
 }

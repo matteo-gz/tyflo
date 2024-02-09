@@ -307,7 +307,12 @@ func (s *ServerReply) Decode(r io.Reader) (err error) {
 	case ATYPIPV4Address:
 		addrLen = net.IPv4len
 	case ATYPDomainName:
-		addrLen = int(buf[4])
+		buf = make([]byte, 1)
+		_, err = io.ReadFull(r, buf)
+		if err != nil {
+			return
+		}
+		addrLen = int(buf[0])
 	case ATYPIPV6Address:
 		addrLen = net.IPv6len
 	default:

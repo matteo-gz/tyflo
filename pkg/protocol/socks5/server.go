@@ -16,16 +16,17 @@ type Server struct {
 
 const (
 	bufSize = 32 * 1024
+	alive   = 180 * time.Second
 )
 
 func NewServer(l logger.Logger) *Server {
+	pool := &sync.Pool{
+		New: func() interface{} {
+			return make([]byte, bufSize)
+		}}
 	s := &Server{
-		log: l,
-		pool: &sync.Pool{
-			New: func() interface{} {
-				return make([]byte, bufSize)
-			},
-		},
+		log:  l,
+		pool: pool,
 	}
 	return s
 }
@@ -34,11 +35,9 @@ func (s *Server) Start(ctx context.Context, addr string) (err error) {
 	if err != nil {
 		return err
 	}
-	l, err := net.ListenTCP(tcp, a)
-	if err != nil {
+	if s.l, err = net.ListenTCP(tcp, a); err != nil {
 		return err
 	}
-	s.l = l
 	go s.accept(ctx)
 	return nil
 }
@@ -53,13 +52,11 @@ func (s *Server) accept(ctx context.Context) {
 				s.log.ErrorF(ctx, "AcceptTCP", err)
 				continue
 			}
-			err = c.SetKeepAlive(true)
-			if err != nil {
+			if err = c.SetKeepAlive(true); err != nil {
 				s.log.ErrorF(ctx, "SetKeepAlive", err)
 				continue
 			}
-			err = c.SetKeepAlivePeriod(180 * time.Second)
-			if err != nil {
+			if err = c.SetKeepAlivePeriod(alive); err != nil {
 				s.log.ErrorF(ctx, "SetKeepAlivePeriod", err)
 				continue
 			}

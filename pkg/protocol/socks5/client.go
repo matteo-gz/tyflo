@@ -2,9 +2,12 @@ package socks5
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 )
+
+var ErrReplyFail = errors.New("reply fail")
 
 func NewClient(serverAddress string) *Client {
 	return &Client{serverAddress: serverAddress}
@@ -16,24 +19,19 @@ type Client struct {
 }
 
 func (c *Client) Dial(ctx context.Context, address string) (conn net.Conn, err error) {
-	conn, err = dial(ctx, c.serverAddress)
-	if err != nil {
+	if c.c, err = dial(ctx, c.serverAddress); err != nil {
 		return
 	}
-	c.c = conn
-	err = c.negotiate()
-	if err != nil {
+	if err = c.negotiate(); err != nil {
 		return
 	}
-	err = c.authenticate(ctx)
-	if err != nil {
+	if err = c.authenticate(ctx); err != nil {
 		return
 	}
-	err = c.handleRequest(ctx, address)
-	if err != nil {
+	if err = c.handleRequest(ctx, address); err != nil {
 		return
 	}
-	return
+	return c.c, nil
 }
 func (c *Client) negotiate() error {
 	req := NewClientNegotiateReq()
@@ -43,8 +41,7 @@ func (c *Client) negotiate() error {
 }
 func (c *Client) authenticate(ctx context.Context) error {
 	r := NewServerNegotiateReply()
-	err := r.Decode(c.c)
-	if err != nil {
+	if err := r.Decode(c.c); err != nil {
 		return err
 	}
 	if r.Method == MethodNoAuthenticationRequired {
@@ -52,23 +49,20 @@ func (c *Client) authenticate(ctx context.Context) error {
 	}
 	return ErrMethodNotSupport
 }
-func (c *Client) handleRequest(ctx context.Context, address string) error {
+func (c *Client) handleRequest(ctx context.Context, address string) (err error) {
 	r := NewClientRequest()
-	err := r.SetCmdConnect(address)
-	if err != nil {
+	if err = r.SetCmdConnect(address); err != nil {
 		return err
 	}
-	_, err = c.c.Write(r.Bytes())
-	if err != nil {
+	if _, err = c.c.Write(r.Bytes()); err != nil {
 		return err
 	}
 	re := NewServerReply()
-	err = re.Decode(c.c)
-	if err != nil {
+	if err = re.Decode(c.c); err != nil {
 		return err
 	}
 	if re.REP != RepSucceeded {
-		return fmt.Errorf("reply:%v", re.REP)
+		return fmt.Errorf("%w %v", ErrReplyFail, re.REP)
 	}
 	return nil
 }
