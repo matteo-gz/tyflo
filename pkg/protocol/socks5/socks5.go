@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 )
 
 // ref doc: https://datatracker.ietf.org/doc/html/rfc1928
@@ -92,6 +93,7 @@ type ClientRequest struct {
 	ATYP    byte
 	DSTAddr []byte
 	DSTPort uint16
+	host    string
 }
 
 func NewClientRequest() *ClientRequest {
@@ -99,13 +101,14 @@ func NewClientRequest() *ClientRequest {
 }
 func (c *ClientRequest) String() string {
 	return fmt.Sprintf(
-		"ver %v cmd %v rsv %v atyp %v dst addr %v dst port %v",
+		"ver %v cmd %v rsv %v atyp %v dst addr %v dst port %v host %v",
 		c.VER,
 		c.CMD,
 		c.RSV,
 		c.ATYP,
 		c.DSTAddr,
 		c.DSTPort,
+		c.host,
 	)
 }
 func (c *ClientRequest) Get(ctx context.Context, r io.Reader) (err error) {
@@ -147,6 +150,11 @@ func (c *ClientRequest) Get(ctx context.Context, r io.Reader) (err error) {
 	if err != nil {
 		return
 	}
+	if c.ATYP == ATYPDomainName {
+		c.host = string(buf)
+	} else {
+		c.host = net.IP(buf).String()
+	}
 	c.DSTAddr = buf
 	buf = make([]byte, 2)
 	_, err = io.ReadFull(r, buf)
@@ -155,6 +163,9 @@ func (c *ClientRequest) Get(ctx context.Context, r io.Reader) (err error) {
 	}
 	c.DSTPort = binary.BigEndian.Uint16(buf)
 	return nil
+}
+func (c *ClientRequest) GetAddress() string {
+	return net.JoinHostPort(c.host, strconv.Itoa(int(c.DSTPort)))
 }
 
 type ServerReply struct {
@@ -179,12 +190,20 @@ func (s *ServerReply) Get() []byte {
 	for _, v := range s.BNDAddr {
 		d = append(d, v)
 	}
-	binary.BigEndian.PutUint16(d, s.BNDPort)
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, s.BNDPort)
+	d = append(d, b...)
 	return d
 }
-func (s *ServerReply) Set() {
+
+// SetConnectDirectReply not bind address
+func (s *ServerReply) SetConnectDirectReply() {
 	s.VER = Version5
 	s.REP = RepSucceeded
 	s.RSV = RSVDefault
-	
+	s.ATYP = ATYPIPV4Address
+	for i := 0; i < net.IPv4len; i++ {
+		s.BNDAddr = append(s.BNDAddr, 0)
+	}
+	s.BNDPort = 0
 }
