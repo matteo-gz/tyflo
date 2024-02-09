@@ -18,7 +18,7 @@ var (
 const dialTimeout = 5 * time.Second
 
 type serverSession struct {
-	c       net.Conn
+	c       *net.TCPConn
 	log     logger.Logger
 	address string
 	buf     bufCache
@@ -29,11 +29,21 @@ type bufCache interface {
 	Put(x any)
 }
 
-func newSession(c net.Conn, l logger.Logger, b bufCache) *serverSession {
+func newSession(c *net.TCPConn, l logger.Logger, b bufCache) *serverSession {
 	return &serverSession{c: c, log: l, buf: b}
 }
-
+func (s *serverSession) config() {
+	if err := s.c.SetKeepAlive(true); err != nil {
+		_ = s.c.Close()
+		return
+	}
+	if err := s.c.SetKeepAlivePeriod(alive); err != nil {
+		_ = s.c.Close()
+		return
+	}
+}
 func (s *serverSession) handle(ctxP context.Context) {
+	s.config()
 	select {
 	case <-ctxP.Done():
 		return
@@ -43,17 +53,20 @@ func (s *serverSession) handle(ctxP context.Context) {
 		clientVerReq, err := s.negotiate(ctx)
 		if err != nil {
 			s.log.ErrorF(ctx, "negotiate", clientVerReq, err)
+			_ = s.c.Close()
 			return
 		}
 		s.log.DebugF(ctx, fmt.Sprintf("clientVerReq:%#v", clientVerReq))
 		if err = s.authenticate(ctx); err != nil {
 			s.log.ErrorF(ctx, "authenticate", err)
+			_ = s.c.Close()
 			return
 		}
 		s.log.DebugF(ctx, "authenticate")
 		clientRequest, err := s.handleRequest(ctx)
 		if err != nil {
 			s.log.ErrorF(ctx, "handleRequest", err)
+			_ = s.c.Close()
 			return
 		}
 		s.log.DebugF(ctx, "clientRequest", clientRequest)
@@ -62,6 +75,7 @@ func (s *serverSession) handle(ctxP context.Context) {
 		case CmdCONNECT:
 			err = s.connect(ctx)
 			if err != nil {
+				_ = s.c.Close()
 				s.log.ErrorF(ctx, "connect", err)
 				return
 			}

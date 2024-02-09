@@ -52,14 +52,6 @@ func (s *Server) accept(ctx context.Context) {
 				s.log.ErrorF(ctx, "AcceptTCP", err)
 				continue
 			}
-			if err = c.SetKeepAlive(true); err != nil {
-				s.log.ErrorF(ctx, "SetKeepAlive", err)
-				continue
-			}
-			if err = c.SetKeepAlivePeriod(alive); err != nil {
-				s.log.ErrorF(ctx, "SetKeepAlivePeriod", err)
-				continue
-			}
 			s.log.DebugF(ctx, "newSession")
 			sess := newSession(c, s.log, s.pool)
 			go sess.handle(ctx)
