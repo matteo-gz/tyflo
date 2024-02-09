@@ -10,6 +10,14 @@ import (
 
 func main() {
 	go server()
+	c := socks5.NewClient()
+	ctx := context.Background()
+	err := c.Dial(ctx, ":1079")
+	if err != nil {
+		log.Println(err)
+	} else {
+		c.Forward(ctx)
+	}
 	io.NewBlocker().Block()
 }
 

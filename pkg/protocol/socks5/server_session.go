@@ -127,11 +127,8 @@ func (s *serverSession) connect(ctx context.Context) error {
 		return err
 	}
 	s.log.DebugF(ctx, "NewServerReply", n)
-	d := &net.Dialer{
-		Timeout: 5 * time.Second,
-	}
 	s.log.DebugF(ctx, "dial", s.address)
-	conn, err := d.DialContext(ctx, tcp, s.address)
+	conn, err := dial(ctx, s.address)
 	if err != nil {
 		return err
 	}
@@ -142,4 +139,10 @@ func (s *serverSession) connect(ctx context.Context) error {
 
 	return nil
 
+}
+func dial(ctx context.Context, address string) (net.Conn, error) {
+	d := &net.Dialer{
+		Timeout: 5 * time.Second,
+	}
+	return d.DialContext(ctx, tcp, address)
 }

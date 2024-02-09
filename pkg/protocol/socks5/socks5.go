@@ -34,6 +34,7 @@ var (
 	ErrCmdNotSupport     = errors.New("cmd not support")
 	ErrRsvInvalid        = errors.New("request rsv invalid")
 	ErrATYPInvalid       = errors.New("request ATYP invalid")
+	ErrMethodNotSupport  = errors.New("method not support")
 )
 
 type ClientNegotiateReq struct {
@@ -69,6 +70,16 @@ func (req *ClientNegotiateReq) Get(r io.Reader) (err error) {
 	req.Methods = buf
 	return
 }
+func (req *ClientNegotiateReq) GetNoAuthenticationRequired() []byte {
+	req.NMethods = 1
+	req.Methods = []byte{MethodNoAuthenticationRequired}
+	req.Version = Version5
+	data := []byte{req.Version, req.NMethods}
+	for _, v := range req.Methods {
+		data = append(data, v)
+	}
+	return data
+}
 
 type ServerNegotiateReply struct {
 	Version byte
@@ -84,6 +95,19 @@ func (s *ServerNegotiateReply) Get() []byte {
 func (s *ServerNegotiateReply) SetNotPassword() {
 	s.Version = Version5
 	s.Method = MethodNoAuthenticationRequired
+}
+func (s *ServerNegotiateReply) Decode(ctx context.Context, r io.Reader) error {
+	buf := make([]byte, 2)
+	_, err := io.ReadFull(r, buf)
+	if err != nil {
+		return err
+	}
+	s.Version = buf[0]
+	if s.Version != Version5 {
+		return ErrVersionNotV5
+	}
+	s.Method = buf[1]
+	return nil
 }
 
 type ClientRequest struct {

@@ -4,12 +4,11 @@ import (
 	"context"
 	"github.com/matteo-gz/tyflo/api"
 	"github.com/matteo-gz/tyflo/pkg/io"
-	"github.com/matteo-gz/tyflo/pkg/protocol/socks5"
 	"time"
 )
 
 func main() {
-	var c api.Client = socks5.New()
+	var c api.Client
 	ctx := context.TODO()
 	c.Dial(ctx)
 	c.Forward(ctx)
