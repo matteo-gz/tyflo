@@ -22,15 +22,30 @@ type serverSession struct {
 	log     logger.Logger
 	address string
 	buf     bufCache
+	dialer  Dialer
 }
 
 type bufCache interface {
 	Get() any
 	Put(x any)
 }
+type Dialer interface {
+	DialContext(context context.Context, addr string) (conn net.Conn, err error)
+}
+type DefaultDialer struct {
+}
 
-func newSession(c *net.TCPConn, l logger.Logger, b bufCache) *serverSession {
-	return &serverSession{c: c, log: l, buf: b}
+func (DefaultDialer) DialContext(context context.Context, addr string) (conn net.Conn, err error) {
+	return dial(context, addr)
+}
+
+func newSession(c *net.TCPConn, l logger.Logger, b bufCache, d Dialer) *serverSession {
+	return &serverSession{
+		c:      c,
+		log:    l,
+		buf:    b,
+		dialer: d,
+	}
 }
 func (s *serverSession) config() {
 	if err := s.c.SetKeepAlive(true); err != nil {
@@ -149,7 +164,8 @@ func (s *serverSession) connect(ctx context.Context) error {
 	}
 	s.log.DebugF(ctx, "NewServerReply", n)
 	s.log.DebugF(ctx, "dial", s.address)
-	conn, err := dial(ctx, s.address)
+	//conn, err := dial(ctx, s.address)
+	conn, err := s.dialer.DialContext(ctx, s.address)
 	if err != nil {
 		return err
 	}

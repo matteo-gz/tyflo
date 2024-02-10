@@ -9,9 +9,10 @@ import (
 )
 
 type Server struct {
-	l    *net.TCPListener
-	log  logger.Logger
-	pool *sync.Pool
+	l      *net.TCPListener
+	log    logger.Logger
+	pool   *sync.Pool
+	dialer Dialer
 }
 
 const (
@@ -19,14 +20,15 @@ const (
 	alive   = 180 * time.Second
 )
 
-func NewServer(l logger.Logger) *Server {
+func NewServer(l logger.Logger, dialer Dialer) *Server {
 	pool := &sync.Pool{
 		New: func() interface{} {
 			return make([]byte, bufSize)
 		}}
 	s := &Server{
-		log:  l,
-		pool: pool,
+		log:    l,
+		pool:   pool,
+		dialer: dialer,
 	}
 	return s
 }
@@ -53,7 +55,7 @@ func (s *Server) accept(ctx context.Context) {
 				continue
 			}
 			s.log.DebugF(ctx, "newSession")
-			sess := newSession(c, s.log, s.pool)
+			sess := newSession(c, s.log, s.pool, s.dialer)
 			go sess.handle(ctx)
 		}
 	}

@@ -57,7 +57,7 @@ func curl(url1 string) {
 }
 func server() {
 	l := logger.NewDefaultLogger()
-	ss := socks5.NewServer(l)
+	ss := socks5.NewServer(l, socks5.DefaultDialer{})
 	err := ss.Start(context.Background(), ":1079")
 	if err != nil {
 		log.Println(err)
