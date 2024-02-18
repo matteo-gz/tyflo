@@ -1,0 +1,3 @@
+file: private.key
+addr: host:port
+user: username
