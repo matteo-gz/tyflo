@@ -1,3 +1,4 @@
 file: private.key
 addr: host:port
 user: username
+port: 2080

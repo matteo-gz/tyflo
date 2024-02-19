@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"github.com/matteo-gz/tyflo/pkg/config"
 	"github.com/matteo-gz/tyflo/pkg/io"
 	"github.com/matteo-gz/tyflo/pkg/logger"
@@ -15,6 +16,7 @@ type Conf struct {
 	File string `yaml:"file"`
 	Addr string `yaml:"addr"`
 	User string `yaml:"user"`
+	Port int    `yaml:"port"`
 }
 
 func (c *Conf) get() interface{} {
@@ -46,7 +48,7 @@ func main() {
 	}
 	l := logger.NewDefaultLogger()
 	ss := socks5.NewServer(l, sshc)
-	err = ss.Start(context.Background(), ":1079")
+	err = ss.Start(context.Background(), fmt.Sprintf(":%d", c.Port))
 	if err != nil {
 		log.Println(err)
 		return
