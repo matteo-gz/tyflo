@@ -36,6 +36,7 @@ var (
 	ErrATYPInvalid       = errors.New("request ATYP invalid")
 	ErrMethodNotSupport  = errors.New("method not support")
 	ErrHostInvalid       = errors.New("host invalid")
+	ErrUserPasswordLen   = errors.New("user or password len over 255")
 )
 
 type Message interface {
@@ -78,6 +79,11 @@ func (req *ClientNegotiateReq) Decode(r io.Reader) (err error) {
 func (req *ClientNegotiateReq) SetNoAuthenticationRequired() {
 	req.NMethods = 1
 	req.Methods = []byte{MethodNoAuthenticationRequired}
+	req.Version = Version5
+}
+func (req *ClientNegotiateReq) SetUsernamePassword() {
+	req.NMethods = 1
+	req.Methods = []byte{MethodNoAuthenticationRequired, MethodUsernamePassword}
 	req.Version = Version5
 }
 func (req *ClientNegotiateReq) Bytes() []byte {
@@ -337,3 +343,72 @@ func (s *ServerReply) Decode(r io.Reader) (err error) {
 	s.BNDPort = binary.BigEndian.Uint16(buf)
 	return nil
 }
+
+type UsernamePasswordReq struct {
+	VER    byte
+	ULEN   byte
+	UNAME  []byte
+	PLEN   byte
+	PASSWD []byte
+}
+
+func (req *UsernamePasswordReq) Bytes() []byte {
+	data := []byte{req.VER, req.ULEN}
+	data = append(data, req.UNAME...)
+	data = append(data, req.PLEN)
+	data = append(data, req.PASSWD...)
+	return data
+}
+func (req *UsernamePasswordReq) Decode(r io.Reader) (err error) {
+	return nil // todo
+}
+func (req *UsernamePasswordReq) SetUsernamePassword(user, password string) error {
+	var l1, l2 int
+	l1 = len(user)
+	l2 = len(password)
+	if l1 < 1 || l1 > 255 {
+		return ErrUserPasswordLen
+	}
+	if l2 < 1 || l2 > 255 {
+		return ErrUserPasswordLen
+	}
+	req.VER = UserPasswordVersion
+	req.ULEN = byte(l1)
+	req.UNAME = []byte(user)
+	req.PLEN = byte(l2)
+	req.PASSWD = []byte(password)
+	return nil
+}
+func NewUsernamePasswordReq() *UsernamePasswordReq {
+	return &UsernamePasswordReq{}
+}
+
+type UsernamePasswordReply struct {
+	VER    byte
+	STATUS byte
+}
+
+func (reply *UsernamePasswordReply) Decode(r io.Reader) (err error) {
+	buf := make([]byte, 2)
+	n, err := io.ReadFull(r, buf)
+	if err != nil {
+		return fmt.Errorf("len:%d %w", n, err)
+	}
+	reply.VER = buf[0]
+	reply.STATUS = buf[1]
+	if reply.VER != UserPasswordVersion {
+		return ErrVersionNotV5
+	}
+	if reply.STATUS != UserPasswordOk {
+		return ErrReplyFail
+	}
+	return nil
+}
+func NewUsernamePasswordReply() *UsernamePasswordReply {
+	return &UsernamePasswordReply{}
+}
+
+const (
+	UserPasswordVersion = 1
+	UserPasswordOk      = 0
+)

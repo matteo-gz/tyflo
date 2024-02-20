@@ -4,18 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/matteo-gz/tyflo/pkg/logger"
 	"net"
 )
 
 var ErrReplyFail = errors.New("reply fail")
 
-func NewClient(serverAddress string) *Client {
-	return &Client{serverAddress: serverAddress}
+func NewClient(serverAddress string, l logger.Logger) *Client {
+	return &Client{serverAddress: serverAddress, log: l}
 }
 
 type Client struct {
 	c             net.Conn
 	serverAddress string
+	log           logger.Logger
 }
 
 func (c *Client) Dial(ctx context.Context, address string) (conn net.Conn, err error) {
@@ -33,9 +35,35 @@ func (c *Client) Dial(ctx context.Context, address string) (conn net.Conn, err e
 	}
 	return c.c, nil
 }
+func (c *Client) DialWithUsernamePassword(ctx context.Context, address, user, password string) (conn net.Conn, err error) {
+	if c.c, err = dial(ctx, c.serverAddress); err != nil {
+		c.log.DebugF(ctx, "dial")
+		return
+	}
+	if err = c.negotiateWithUserPassword(); err != nil {
+		c.log.DebugF(ctx, "negotiateWithUserPassword")
+		return
+	}
+	if err = c.authenticateWithUserPassword(ctx, user, password); err != nil {
+		c.log.DebugF(ctx, "authenticateWithUserPassword")
+		return
+	}
+	c.log.DebugF(ctx, "handleRequest.before")
+	if err = c.handleRequest(ctx, address); err != nil {
+		c.log.DebugF(ctx, "handleRequest")
+		return
+	}
+	return c.c, nil
+}
 func (c *Client) negotiate() error {
 	req := NewClientNegotiateReq()
 	req.SetNoAuthenticationRequired()
+	_, err := c.c.Write(req.Bytes())
+	return err
+}
+func (c *Client) negotiateWithUserPassword() error {
+	req := NewClientNegotiateReq()
+	req.SetUsernamePassword()
 	_, err := c.c.Write(req.Bytes())
 	return err
 }
@@ -48,6 +76,35 @@ func (c *Client) authenticate(ctx context.Context) error {
 		return nil
 	}
 	return ErrMethodNotSupport
+}
+func (c *Client) authenticateWithUserPassword(ctx context.Context, user, password string) error {
+	r := NewServerNegotiateReply()
+	if err := r.Decode(c.c); err != nil {
+		c.log.DebugF(ctx, "decode")
+		return err
+	}
+	switch r.Method {
+	case MethodNoAuthenticationRequired:
+		return nil
+	case MethodUsernamePassword:
+		req := NewUsernamePasswordReq()
+		err := req.SetUsernamePassword(user, password)
+		if err != nil {
+			c.log.DebugF(ctx, "SetUsernamePassword")
+			return err
+		}
+		c.log.DebugF(ctx, "NewUsernamePasswordReq")
+		_, err = c.c.Write(req.Bytes())
+		if err != nil {
+			c.log.DebugF(ctx, "Write")
+			return err
+		}
+		err = NewUsernamePasswordReply().Decode(c.c)
+		c.log.DebugF(ctx, "NewUsernamePasswordReply.Decode", err)
+		return err
+	default:
+		return ErrMethodNotSupport
+	}
 }
 func (c *Client) handleRequest(ctx context.Context, address string) (err error) {
 	r := NewClientRequest()
