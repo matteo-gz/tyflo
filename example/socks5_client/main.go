@@ -26,7 +26,8 @@ func curl(url1 string) {
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			fmt.Println("DialContext", network, addr)
 			if network == "tcp" {
-				c := socks5.NewClient(":1079")
+				l := logger.NewDefaultLogger()
+				c := socks5.NewClient(":1079", l)
 				conn, err := c.Dial(ctx, addr)
 				if err != nil {
 					return nil, err
