@@ -5,3 +5,9 @@ send:
 
 test_socks5_server:
 	go run cmd/socks5/main.go -conf ./cmd/socks5/conf.yaml > test_socks5.csv
+
+test_http_server:
+	go run cmd/http/main.go -conf ./cmd/http/conf.yaml
+
+test_ssh_server:
+	 go run cmd/ssh_socks5/main.go -conf ./cmd/ssh_socks5/conf.yaml
