@@ -103,7 +103,7 @@ func (c *Client) authenticateWithUserPassword(ctx context.Context, user, passwor
 		c.log.DebugF(ctx, "NewUsernamePasswordReply.Decode", err)
 		return err
 	default:
-		return ErrMethodNotSupport
+		return fmt.Errorf("method%v %w", r.Method, ErrMethodNotSupport)
 	}
 }
 func (c *Client) handleRequest(ctx context.Context, address string) (err error) {

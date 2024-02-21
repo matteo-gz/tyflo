@@ -1,3 +1,6 @@
 user: username
 password: user-password
 addr: server-addr
+count: 1
+batch: 2
+debug: false

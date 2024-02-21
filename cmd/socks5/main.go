@@ -20,6 +20,9 @@ type Conf struct {
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	Addr     string `yaml:"addr"`
+	Count    int    `yaml:"count"`
+	Batch    int    `yaml:"batch"`
+	Debug    bool   `yaml:"debug"`
 }
 
 var flagConfig string
@@ -39,12 +42,17 @@ func main() {
 		return
 	}
 	log.Println("c", c)
-	l := logger.NewNopLogLogger()
-	//l := logger.NewDefaultLogger()
+	var l logger.Logger
+
+	if c.Debug {
+		l = logger.NewDefaultLogger()
+	} else {
+		l = logger.NewNopLogLogger()
+	}
 	//sc := socks5.NewClient(c.Addr, l)
 	csvHead()
-	jobCount := 2
-	jobBatch := 10
+	jobCount := c.Count
+	jobBatch := c.Batch
 	csvCount(jobBatch * jobCount)
 	for i := 0; i < jobCount; i++ {
 		job(l, c, jobBatch)

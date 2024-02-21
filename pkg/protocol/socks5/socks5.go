@@ -77,13 +77,13 @@ func (req *ClientNegotiateReq) Decode(r io.Reader) (err error) {
 	return
 }
 func (req *ClientNegotiateReq) SetNoAuthenticationRequired() {
-	req.NMethods = 1
 	req.Methods = []byte{MethodNoAuthenticationRequired}
+	req.NMethods = byte(len(req.Methods))
 	req.Version = Version5
 }
 func (req *ClientNegotiateReq) SetUsernamePassword() {
-	req.NMethods = 1
 	req.Methods = []byte{MethodNoAuthenticationRequired, MethodUsernamePassword}
+	req.NMethods = byte(len(req.Methods))
 	req.Version = Version5
 }
 func (req *ClientNegotiateReq) Bytes() []byte {
@@ -347,9 +347,9 @@ func (s *ServerReply) Decode(r io.Reader) (err error) {
 type UsernamePasswordReq struct {
 	VER    byte
 	ULEN   byte
-	UNAME  []byte
+	UNAME  string
 	PLEN   byte
-	PASSWD []byte
+	PASSWD string
 }
 
 func (req *UsernamePasswordReq) Bytes() []byte {
@@ -374,9 +374,9 @@ func (req *UsernamePasswordReq) SetUsernamePassword(user, password string) error
 	}
 	req.VER = UserPasswordVersion
 	req.ULEN = byte(l1)
-	req.UNAME = []byte(user)
+	req.UNAME = user
 	req.PLEN = byte(l2)
-	req.PASSWD = []byte(password)
+	req.PASSWD = password
 	return nil
 }
 func NewUsernamePasswordReq() *UsernamePasswordReq {
@@ -392,7 +392,7 @@ func (reply *UsernamePasswordReply) Decode(r io.Reader) (err error) {
 	buf := make([]byte, 2)
 	n, err := io.ReadFull(r, buf)
 	if err != nil {
-		return fmt.Errorf("len:%d %w", n, err)
+		return fmt.Errorf("UsernamePasswordReply.Decode len:%d %w", n, err)
 	}
 	reply.VER = buf[0]
 	reply.STATUS = buf[1]
