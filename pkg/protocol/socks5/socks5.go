@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net"
 	"strconv"
@@ -224,6 +225,11 @@ func (c *ClientRequest) SetCmdConnect(address string) (err error) {
 		if ipv4 := ip.To4(); ipv4 != nil {
 			c.ATYP = ATYPIPV4Address
 			c.DSTAddr = ip
+			log.Println("ipv4:", ipv4)
+			log.Println("ip:", ip)
+			// bug
+			log.Println("ipv4.DSTAddr:", c.DSTAddr)
+			// todo
 		} else {
 			c.ATYP = ATYPIPV6Address
 			c.DSTAddr = ip

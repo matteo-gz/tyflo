@@ -1,6 +1,7 @@
 package socks5
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -48,7 +49,7 @@ func (c *Client) DialWithUsernamePassword(ctx context.Context, address, user, pa
 		c.log.DebugF(ctx, "authenticateWithUserPassword")
 		return
 	}
-	c.log.DebugF(ctx, "handleRequest.before")
+	c.log.DebugF(ctx, "handleRequest.before", address)
 	if err = c.handleRequest(ctx, address); err != nil {
 		c.log.DebugF(ctx, "handleRequest")
 		return
@@ -111,6 +112,12 @@ func (c *Client) handleRequest(ctx context.Context, address string) (err error) 
 	if err = r.SetCmdConnect(address); err != nil {
 		return err
 	}
+	c.log.DebugF(ctx, "set data", r.Bytes(), r)
+	// debug TODO
+	debugReq := NewClientRequest()
+	err = debugReq.Decode(bytes.NewReader(r.Bytes()))
+	c.log.DebugF(ctx, "debug data", debugReq)
+	//
 	if _, err = c.c.Write(r.Bytes()); err != nil {
 		return err
 	}

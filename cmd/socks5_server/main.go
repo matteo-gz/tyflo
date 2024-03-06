@@ -13,6 +13,7 @@ func main() {
 	err := ss.Start(context.Background(), ":1079")
 	if err != nil {
 		log.Println(err)
+		return
 	}
 	log.Println("ok")
 	ch := make(chan struct{})
