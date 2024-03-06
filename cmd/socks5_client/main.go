@@ -42,12 +42,13 @@ func main() {
 	//cc, err := sc.Dial(context.Background(), c.TargetAddr)
 	cc, err := sc.DialWithUsernamePassword(context.Background(), c.TargetAddr, c.User, c.Password)
 	if err != nil {
-		fmt.Println("err", err)
+		log.Println("err", err)
 		return
 	}
 	t := time.NewTicker(10 * time.Second)
 	defer t.Stop()
 	writeData(cc)
+	go readData(cc)
 	for {
 		select {
 		case <-t.C:
@@ -55,11 +56,28 @@ func main() {
 		}
 	}
 }
+func readData(conn net.Conn) {
+	buf := make([]byte, 1024)
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			log.Printf("read  err:%v \n", err)
+		} else {
+			log.Printf("read n:%v %v \n", n, buf[:n])
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
 func writeData(cc net.Conn) {
-	n, err := cc.Write([]byte{1})
+	var data []byte
+	for _, v := range fmt.Sprint(time.Now().Unix()) {
+		b := byte(v - '0')
+		data = append(data, b)
+	}
+	n, err := cc.Write(data)
 	if err != nil {
-		fmt.Println("write err", err)
+		log.Println("write err", err)
 	} else {
-		fmt.Println("write n", n)
+		log.Println("write n", n, data)
 	}
 }

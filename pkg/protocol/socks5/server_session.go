@@ -85,7 +85,7 @@ func (s *serverSession) handle(ctxP context.Context) {
 			return
 		}
 		s.log.DebugF(ctx, "clientRequest", clientRequest)
-		s.address = clientRequest.GetAddress() //
+		s.address = clientRequest.GetAddress()
 		switch clientRequest.CMD {
 		case CmdCONNECT:
 			err = s.connect(ctx)
@@ -163,8 +163,6 @@ func (s *serverSession) connect(ctx context.Context) error {
 		return err
 	}
 	s.log.DebugF(ctx, "NewServerReply", n)
-	s.log.DebugF(ctx, "s.address:", s.address)
-	//s.address = "127.0.0.1:3306" // debug 推测服务端解析ipv4失败,或者客户端 ipv4填写错误
 	s.log.DebugF(ctx, "dial", s.address)
 	//conn, err := dial(ctx, s.address)
 	conn, err := s.dialer.DialContext(ctx, s.address)

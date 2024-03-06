@@ -1,0 +1,4 @@
+user: "u"
+password: "p"
+addr: "127.0.0.1:1079"
+target_addr: "127.0.0.1:3306"

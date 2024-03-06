@@ -11,3 +11,8 @@ test_http_server:
 
 test_ssh_server:
 	 go run cmd/ssh_socks5/main.go -conf ./cmd/ssh_socks5/conf.yaml
+
+test_tcp:
+	go run cmd/tcp_server/main.go -conf cmd/tcp_server/conf.yaml
+	go run cmd/socks5_server/main.go -conf cmd/socks5_server/conf.yaml
+	go run cmd/socks5_client/main.go -conf cmd/socks5_client/conf.yaml

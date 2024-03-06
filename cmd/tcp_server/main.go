@@ -1,13 +1,36 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"github.com/matteo-gz/tyflo/pkg/config"
+	"log"
+	"math"
 	"net"
 	"time"
 )
 
-func main() {
+type Conf struct {
+	Addr string `yaml:"addr"`
+}
 
+var flagConfig string
+
+func main() {
+	c := Conf{}
+	flag.StringVar(&flagConfig, "conf", "", "config path, eg: -conf config.yaml")
+	flag.Parse()
+	fn, err := config.Get(flagConfig)
+	if err != nil {
+		log.Println("get", err)
+		return
+	}
+	err = fn(&c)
+	if err != nil {
+		log.Println("get2", err)
+		return
+	}
+	log.Printf("c %#v", c)
 	// 监听localhost:8080
 	ln, err := net.Listen("tcp", ":3306")
 	if err != nil {
@@ -30,39 +53,46 @@ func main() {
 		go handleConn(conn)
 	}
 }
+
 func handleConn(conn net.Conn) {
+	ch := make(chan []byte, 40)
 	go func() {
 		buf := make([]byte, 1024)
 		for {
 			n, err := conn.Read(buf)
 			if err != nil {
-				fmt.Println("read err", err)
+
 			} else {
-				fmt.Println("read n ", n)
+				ch <- buf[:n]
 			}
-			fmt.Println("read data byte", buf)
-			fmt.Println("read data string", string(buf))
+			log.Printf("read data n:%v err:%v byte %v \n", n, err, buf[:n])
 			time.Sleep(2 * time.Second)
 		}
 	}()
 	go func() {
 		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
-		writeData(conn) // when start
+		writeData(conn, []byte{0}) // when start
 		for {
 			select {
+			case msg := <-ch:
+				buf := make([]byte, len(msg))
+				for i, v := range msg {
+					buf[i] = math.MaxUint8 - v
+				}
+				writeData(conn, buf)
 			case <-t.C:
-				writeData(conn)
+				writeData(conn, []byte{0})
 			}
 		}
 	}()
 }
-func writeData(conn net.Conn) {
-	n, err := conn.Write([]byte{1})
+func writeData(conn net.Conn, data []byte) {
+	n, err := conn.Write(data)
 	if err != nil {
-		fmt.Println("write err", err)
+		log.Println("write err", err)
 	} else {
-		fmt.Println("write n", n)
+		log.Println("write n", n, data)
 	}
 }
 
