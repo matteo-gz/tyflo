@@ -11,7 +11,8 @@ import (
 )
 
 type Conf struct {
-	Addr string `yaml:"addr"`
+	Addr      string `yaml:"addr"`
+	ReplyTime uint   `yaml:"reply_time"`
 }
 
 var flagConfig string
@@ -50,11 +51,11 @@ func main() {
 		}
 
 		// 处理连接
-		go handleConn(conn)
+		go handleConn(conn, c.ReplyTime)
 	}
 }
 
-func handleConn(conn net.Conn) {
+func handleConn(conn net.Conn, ReplyTime uint) {
 	ch := make(chan []byte, 40)
 	go func() {
 		buf := make([]byte, 1024)
@@ -70,7 +71,7 @@ func handleConn(conn net.Conn) {
 		}
 	}()
 	go func() {
-		t := time.NewTicker(30 * time.Second)
+		t := time.NewTicker(time.Duration(ReplyTime) * time.Second)
 		defer t.Stop()
 		writeData(conn, []byte{0}) // when start
 		for {

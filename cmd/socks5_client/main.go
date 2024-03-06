@@ -13,10 +13,11 @@ import (
 )
 
 type Conf struct {
-	User       string `yaml:"user"`
-	Password   string `yaml:"password"`
-	Addr       string `yaml:"addr"`
-	TargetAddr string `yaml:"target_addr"`
+	User        string `yaml:"user"`
+	Password    string `yaml:"password"`
+	Addr        string `yaml:"addr"`
+	TargetAddr  string `yaml:"target_addr"`
+	RequestTime uint   `yaml:"request_time"`
 }
 
 var flagConfig string
@@ -45,7 +46,7 @@ func main() {
 		log.Println("err", err)
 		return
 	}
-	t := time.NewTicker(10 * time.Second)
+	t := time.NewTicker(time.Duration(c.RequestTime) * time.Second)
 	defer t.Stop()
 	writeData(cc)
 	go readData(cc)
