@@ -45,6 +45,24 @@ func NewClient(file, addr, user string) (c *Client, err error) {
 	go c.retry()
 	return
 }
+func NewClientByPassword(pass, addr, user string) (c *Client, err error) {
+	c = &Client{
+		addr: addr,
+		conf: &ssh.ClientConfig{
+			User: user,
+			Auth: []ssh.AuthMethod{
+				ssh.Password(pass),
+			},
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		},
+	}
+	err = c.connect()
+	if err != nil {
+		return nil, err
+	}
+	go c.retry()
+	return
+}
 func (c *Client) connect() error {
 	sshClient, err := ssh.Dial("tcp", c.addr, c.conf)
 	if err != nil {

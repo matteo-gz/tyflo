@@ -1,0 +1,7 @@
+version: '3'
+services:
+  sshd:
+    container_name: sshd_pass_my
+    image: ssh_pass_on_docker
+    ports:
+      - "10026:22"

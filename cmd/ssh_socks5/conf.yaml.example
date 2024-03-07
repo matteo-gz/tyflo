@@ -2,3 +2,12 @@ file: private.key
 addr: host:port
 user: username
 port: 2080
+type: file
+
+# choose one way
+
+pass: "pass"
+addr: host:port
+user: username
+port: 2080
+type: pass

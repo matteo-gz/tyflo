@@ -1,0 +1,7 @@
+version: '3'
+services:
+  sshd:
+    container_name: sshd_my
+    image: ssh_on_docker
+    ports:
+      - "10025:22"

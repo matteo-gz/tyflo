@@ -13,10 +13,12 @@ import (
 )
 
 type Conf struct {
-	File string `yaml:"file"`
-	Addr string `yaml:"addr"`
-	User string `yaml:"user"`
-	Port int    `yaml:"port"`
+	File  string `yaml:"file,omitempty"`
+	Addr  string `yaml:"addr"`
+	User  string `yaml:"user"`
+	Port  int    `yaml:"port"`
+	TypeX string `yaml:"type"`
+	Pass  string `yaml:"pass,omitempty"`
 }
 
 func (c *Conf) get() interface{} {
@@ -41,7 +43,17 @@ func main() {
 		return
 	}
 	log.Println("c", c)
-	sshc, err := ssh.NewClient(c.File, c.Addr, c.User)
+	var (
+		sshc *ssh.Client
+	)
+	if c.TypeX == "pass" {
+		sshc, err = ssh.NewClientByPassword(c.Pass, c.Addr, c.User)
+	} else if c.TypeX == "file" {
+		sshc, err = ssh.NewClient(c.File, c.Addr, c.User)
+	} else {
+		log.Println("type: file|pass")
+		return
+	}
 	if err != nil {
 		log.Println(err)
 		return
