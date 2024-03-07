@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/matteo-gz/tyflo/pkg/config"
@@ -57,23 +58,34 @@ func main() {
 
 func handleConn(conn net.Conn, ReplyTime uint) {
 	ch := make(chan []byte, 40)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		buf := make([]byte, 1024)
 		for {
-			n, err := conn.Read(buf)
-			if err != nil {
+			select {
+			case <-ctx.Done():
+				log.Println("read done")
+				return
+			default:
+				n, err := conn.Read(buf)
+				if err != nil {
 
-			} else {
-				ch <- buf[:n]
+				} else {
+					ch <- buf[:n]
+				}
+				log.Printf("read data n:%v err:%v byte %v \n", n, err, buf[:n])
+				time.Sleep(2 * time.Second)
 			}
-			log.Printf("read data n:%v err:%v byte %v \n", n, err, buf[:n])
-			time.Sleep(2 * time.Second)
 		}
 	}()
 	go func() {
 		t := time.NewTicker(time.Duration(ReplyTime) * time.Second)
 		defer t.Stop()
-		writeData(conn, []byte{0}) // when start
+		err := writeData(conn, []byte{0}) // when start
+		if err != nil {
+			cancel()
+			return
+		}
 		for {
 			select {
 			case msg := <-ch:
@@ -81,20 +93,29 @@ func handleConn(conn net.Conn, ReplyTime uint) {
 				for i, v := range msg {
 					buf[i] = math.MaxUint8 - v
 				}
-				writeData(conn, buf)
+				err = writeData(conn, buf)
+				if err != nil {
+					cancel()
+					return
+				}
 			case <-t.C:
-				writeData(conn, []byte{0})
+				err = writeData(conn, []byte{0})
+				if err != nil {
+					cancel()
+					return
+				}
 			}
 		}
 	}()
 }
-func writeData(conn net.Conn, data []byte) {
+func writeData(conn net.Conn, data []byte) error {
 	n, err := conn.Write(data)
 	if err != nil {
 		log.Println("write err", err)
 	} else {
 		log.Println("write n", n, data)
 	}
+	return err
 }
 
 // 处理单个连接
