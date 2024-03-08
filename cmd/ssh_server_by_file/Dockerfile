@@ -11,13 +11,14 @@ RUN apt-get install -y openssh-server
 RUN mkdir /var/run/sshd
 # 添加公钥
 COPY key/id_rsa.pub /root/.ssh/authorized_keys
-RUN  chmod 644 /root/.ssh/authorized_keys
+RUN  chmod 600 /root/.ssh/authorized_keys
 RUN chmod 700 ~/.ssh
 # 配置sshd
 RUN echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
-RUN echo "RSAAuthentication yes" >> /etc/ssh/sshd_config
 RUN echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
 RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+RUN echo "AuthorizedKeysFile     .ssh/authorized_keys" >> /etc/ssh/sshd_config
+RUN echo "LogLevel DEBUG" >> /etc/ssh/sshd_config
 
 # 暴露私钥目录
 
