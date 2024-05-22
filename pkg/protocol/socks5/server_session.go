@@ -15,7 +15,10 @@ var (
 	ErrCacheType = errors.New("cache type err")
 )
 
-const dialTimeout = 5 * time.Second
+const (
+	dialTimeout = 5 * time.Second
+	keepAlive   = 15 * time.Second
+)
 
 type serverSession struct {
 	c       *net.TCPConn
@@ -180,7 +183,8 @@ func (s *serverSession) connect(ctx context.Context) error {
 }
 func dial(ctx context.Context, address string) (net.Conn, error) {
 	d := &net.Dialer{
-		Timeout: dialTimeout,
+		Timeout:   dialTimeout,
+		KeepAlive: keepAlive,
 	}
 	return d.DialContext(ctx, tcp, address)
 }
