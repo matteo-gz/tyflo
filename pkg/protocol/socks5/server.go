@@ -2,17 +2,19 @@ package socks5
 
 import (
 	"context"
-	"github.com/matteo-gz/tyflo/pkg/logger"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/matteo-gz/tyflo/pkg/logger"
 )
 
 type Server struct {
-	l      *net.TCPListener
-	log    logger.Logger
-	pool   *sync.Pool
-	dialer Dialer
+	l             *net.TCPListener
+	log           logger.Logger
+	pool          *sync.Pool
+	dialer        Dialer
+	authenticator Authenticator
 }
 
 const (
@@ -20,18 +22,40 @@ const (
 	alive   = 180 * time.Second
 )
 
-func NewServer(l logger.Logger, dialer Dialer) *Server {
-	pool := &sync.Pool{
-		New: func() interface{} {
-			return make([]byte, bufSize)
-		}}
+type Option func(*Server)
+
+func WithLogger(l logger.Logger) Option {
+	return func(s *Server) {
+		s.log = l
+	}
+}
+
+func WithDialer(d Dialer) Option {
+	return func(s *Server) {
+		s.dialer = d
+	}
+}
+
+func WithAuthenticator(a Authenticator) Option {
+	return func(s *Server) {
+		s.authenticator = a
+	}
+}
+
+func NewServer(opts ...Option) *Server {
 	s := &Server{
-		log:    l,
-		pool:   pool,
-		dialer: dialer,
+		pool: &sync.Pool{
+			New: func() interface{} {
+				return make([]byte, bufSize)
+			},
+		},
+	}
+	for _, opt := range opts {
+		opt(s)
 	}
 	return s
 }
+
 func (s *Server) Start(ctx context.Context, addr string) (err error) {
 	a, err := net.ResolveTCPAddr(tcp, addr)
 	if err != nil {
@@ -43,6 +67,7 @@ func (s *Server) Start(ctx context.Context, addr string) (err error) {
 	go s.accept(ctx)
 	return nil
 }
+
 func (s *Server) accept(ctx context.Context) {
 	for {
 		select {

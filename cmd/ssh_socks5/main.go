@@ -4,12 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
+
 	"github.com/matteo-gz/tyflo/pkg/config"
 	"github.com/matteo-gz/tyflo/pkg/io"
 	"github.com/matteo-gz/tyflo/pkg/logger"
 	"github.com/matteo-gz/tyflo/pkg/protocol/socks5"
 	"github.com/matteo-gz/tyflo/pkg/protocol/ssh"
-	"log"
 )
 
 type Conf struct {
@@ -59,7 +60,11 @@ func main() {
 		return
 	}
 	l := logger.NewDefaultLogger()
-	ss := socks5.NewServer(l, sshc)
+	ss := socks5.NewServer(
+		socks5.WithLogger(l),
+		socks5.WithDialer(sshc),
+		socks5.WithAuthenticator(socks5.NoAuthenticator{}),
+	)
 	err = ss.Start(context.Background(), fmt.Sprintf(":%d", c.Port))
 	if err != nil {
 		log.Println(err)

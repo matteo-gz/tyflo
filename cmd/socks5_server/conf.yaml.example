@@ -1,1 +1,4 @@
 addr: ":1079"
+users:
+  - username: "u"
+    password: "p"

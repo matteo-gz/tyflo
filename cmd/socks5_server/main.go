@@ -3,14 +3,21 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
+
 	"github.com/matteo-gz/tyflo/pkg/config"
 	"github.com/matteo-gz/tyflo/pkg/logger"
 	"github.com/matteo-gz/tyflo/pkg/protocol/socks5"
-	"log"
 )
 
+type UserAuth struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
 type Conf struct {
-	Addr string `yaml:"addr"`
+	Addr  string     `yaml:"addr"`
+	Users []UserAuth `yaml:"users"`
 }
 
 var flagConfig string
@@ -32,7 +39,19 @@ func main() {
 	log.Printf("c %#v", c)
 
 	l := logger.NewDefaultLogger()
-	ss := socks5.NewServer(l, socks5.DefaultDialer{})
+	var auth socks5.Option = socks5.WithAuthenticator(socks5.NoAuthenticator{})
+	if len(c.Users) > 0 {
+		userMap := make(map[string]string)
+		for _, u := range c.Users {
+			userMap[u.Username] = u.Password
+		}
+		auth = socks5.WithAuthenticator(socks5.NewUserPassAuthenticator(userMap))
+	}
+	ss := socks5.NewServer(
+		socks5.WithLogger(l),
+		socks5.WithDialer(socks5.DefaultDialer{}),
+		auth,
+	)
 	err = ss.Start(context.Background(), c.Addr)
 	if err != nil {
 		log.Println(err)

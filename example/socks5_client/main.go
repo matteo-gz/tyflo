@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	io2 "github.com/matteo-gz/tyflo/pkg/io"
-	"github.com/matteo-gz/tyflo/pkg/logger"
-	"github.com/matteo-gz/tyflo/pkg/protocol/socks5"
 	"io"
 	"log"
 	"net"
 	"net/http"
+
+	io2 "github.com/matteo-gz/tyflo/pkg/io"
+	"github.com/matteo-gz/tyflo/pkg/logger"
+	"github.com/matteo-gz/tyflo/pkg/protocol/socks5"
 )
 
 func main() {
@@ -58,7 +59,11 @@ func curl(url1 string) {
 }
 func server() {
 	l := logger.NewDefaultLogger()
-	ss := socks5.NewServer(l, socks5.DefaultDialer{})
+	ss := socks5.NewServer(
+		socks5.WithLogger(l),
+		socks5.WithDialer(socks5.DefaultDialer{}),
+		socks5.WithAuthenticator(socks5.NoAuthenticator{}),
+	)
 	err := ss.Start(context.Background(), ":1079")
 	if err != nil {
 		log.Println(err)
