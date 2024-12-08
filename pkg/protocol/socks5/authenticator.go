@@ -3,6 +3,7 @@ package socks5
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 type Authenticator interface {
@@ -36,5 +37,5 @@ func (a *UserPassAuthenticator) Authenticate(ctx context.Context, username, pass
 			return nil
 		}
 	}
-	return errors.New("authentication failed")
+	return errors.New(fmt.Sprintf("authentication failed for [%s]:[%s]", username, password))
 }

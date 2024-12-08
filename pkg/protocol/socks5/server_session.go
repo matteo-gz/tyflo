@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/matteo-gz/tyflo/pkg/logger"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"net"
 	"time"
+
+	"github.com/matteo-gz/tyflo/pkg/logger"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -21,11 +22,12 @@ const (
 )
 
 type serverSession struct {
-	c       *net.TCPConn
-	log     logger.Logger
-	address string
-	buf     bufCache
-	dialer  Dialer
+	c             *net.TCPConn
+	log           logger.Logger
+	address       string
+	buf           bufCache
+	dialer        Dialer
+	authenticator Authenticator
 }
 
 type bufCache interface {
@@ -42,12 +44,13 @@ func (DefaultDialer) DialContext(context context.Context, addr string) (conn net
 	return dial(context, addr)
 }
 
-func newSession(c *net.TCPConn, l logger.Logger, b bufCache, d Dialer) *serverSession {
+func newSession(c *net.TCPConn, l logger.Logger, b bufCache, d Dialer, a Authenticator) *serverSession {
 	return &serverSession{
-		c:      c,
-		log:    l,
-		buf:    b,
-		dialer: d,
+		c:             c,
+		log:           l,
+		buf:           b,
+		dialer:        d,
+		authenticator: a,
 	}
 }
 func (s *serverSession) config() {
@@ -80,7 +83,7 @@ func (s *serverSession) handle(ctxP context.Context) {
 			_ = s.c.Close()
 			return
 		}
-		s.log.DebugF(ctx, "authenticate")
+		s.log.DebugF(ctx, "authenticate-done")
 		clientRequest, err := s.handleRequest(ctx)
 		if err != nil {
 			s.log.ErrorF(ctx, "handleRequest", err)
@@ -109,9 +112,40 @@ func (s *serverSession) negotiate(ctx context.Context) (req *ClientNegotiateReq,
 }
 
 func (s *serverSession) authenticate(ctx context.Context) error {
+	if s.authenticator == nil {
+		// 没有认证器，返回无认证协商
+		reply := NewServerNegotiateReply()
+		reply.SetNotPassword()
+		_, err := s.c.Write(reply.Bytes())
+		return err
+	}
+	// 协商成功，返回用户名密码认证
 	reply := NewServerNegotiateReply()
-	reply.SetNotPassword()
+	reply.SetUsernamePassword()
 	_, err := s.c.Write(reply.Bytes())
+	if err != nil {
+		return err
+	}
+	s.log.DebugF(ctx, "negotiate-success")
+	// 等待用户名密码认证
+	clientRequest := NewUsernamePasswordReq()
+	err = clientRequest.Decode(s.c)
+	if err != nil {
+		return err
+	}
+	s.log.DebugF(ctx, "clientRequest", clientRequest)
+	// 认证
+	err = s.authenticator.Authenticate(ctx, clientRequest.UNAME, clientRequest.PASSWD)
+	reply2 := NewUsernamePasswordReply()
+	if err != nil {
+		s.log.ErrorF(ctx, "authenticate-failure", err)
+		reply2.SetFailure()
+	} else {
+		s.log.DebugF(ctx, "authenticate-success")
+		reply2.SetSuccess()
+	}
+	// 返回认证结果
+	_, err = s.c.Write(reply2.Bytes())
 	return err
 }
 func (s *serverSession) handleRequest(ctx context.Context) (req *ClientRequest, err error) {

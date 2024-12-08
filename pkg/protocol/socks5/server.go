@@ -80,7 +80,7 @@ func (s *Server) accept(ctx context.Context) {
 				continue
 			}
 			s.log.DebugF(ctx, "newSession")
-			sess := newSession(c, s.log, s.pool, s.dialer)
+			sess := newSession(c, s.log, s.pool, s.dialer, s.authenticator)
 			go sess.handle(ctx)
 		}
 	}
