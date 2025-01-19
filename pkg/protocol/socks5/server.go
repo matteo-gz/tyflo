@@ -10,11 +10,11 @@ import (
 )
 
 type Server struct {
-	l             *net.TCPListener
-	log           logger.Logger
-	pool          *sync.Pool
-	dialer        Dialer
-	authenticator Authenticator
+	l              *net.TCPListener
+	log            logger.Logger
+	pool           *sync.Pool
+	dialer         Dialer
+	authenticators []Authenticator
 }
 
 const (
@@ -36,9 +36,9 @@ func WithDialer(d Dialer) Option {
 	}
 }
 
-func WithAuthenticator(a Authenticator) Option {
+func WithAuthenticator(a ...Authenticator) Option {
 	return func(s *Server) {
-		s.authenticator = a
+		s.authenticators = a
 	}
 }
 
@@ -80,7 +80,7 @@ func (s *Server) accept(ctx context.Context) {
 				continue
 			}
 			s.log.DebugF(ctx, "newSession")
-			sess := newSession(c, s.log, s.pool, s.dialer, s.authenticator)
+			sess := newSession(c, s.log, s.pool, s.dialer, s.authenticators)
 			go sess.handle(ctx)
 		}
 	}

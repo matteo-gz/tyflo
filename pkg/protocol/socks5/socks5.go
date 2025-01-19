@@ -403,10 +403,10 @@ func (req *UsernamePasswordReq) SetUsernamePassword(user, password string) error
 	var l1, l2 int
 	l1 = len(user)
 	l2 = len(password)
-	if l1 < 1 || l1 > 255 {
+	if l1 > 255 {
 		return ErrUserPasswordLen
 	}
-	if l2 < 1 || l2 > 255 {
+	if l2 > 255 {
 		return ErrUserPasswordLen
 	}
 	req.VER = UserPasswordVersion

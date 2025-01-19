@@ -22,12 +22,12 @@ const (
 )
 
 type serverSession struct {
-	c             *net.TCPConn
-	log           logger.Logger
-	address       string
-	buf           bufCache
-	dialer        Dialer
-	authenticator Authenticator
+	c              *net.TCPConn
+	log            logger.Logger
+	address        string
+	buf            bufCache
+	dialer         Dialer
+	authenticators []Authenticator
 }
 
 type bufCache interface {
@@ -44,13 +44,13 @@ func (DefaultDialer) DialContext(context context.Context, addr string) (conn net
 	return dial(context, addr)
 }
 
-func newSession(c *net.TCPConn, l logger.Logger, b bufCache, d Dialer, a Authenticator) *serverSession {
+func newSession(c *net.TCPConn, l logger.Logger, b bufCache, d Dialer, a []Authenticator) *serverSession {
 	return &serverSession{
-		c:             c,
-		log:           l,
-		buf:           b,
-		dialer:        d,
-		authenticator: a,
+		c:              c,
+		log:            l,
+		buf:            b,
+		dialer:         d,
+		authenticators: a,
 	}
 }
 func (s *serverSession) config() {
@@ -112,13 +112,34 @@ func (s *serverSession) negotiate(ctx context.Context) (req *ClientNegotiateReq,
 }
 
 func (s *serverSession) authenticate(ctx context.Context) error {
-	if s.authenticator == nil {
+	if s.authenticators == nil {
+		s.log.DebugF(ctx, "no authenticator exist")
 		// 没有认证器，返回无认证协商
 		reply := NewServerNegotiateReply()
 		reply.SetNotPassword()
 		_, err := s.c.Write(reply.Bytes())
 		return err
 	}
+	isSupported := false
+	var authenticator Authenticator
+	for _, a := range s.authenticators {
+		if a.Method() == MethodNoAuthenticationRequired {
+			// first supported
+			reply := NewServerNegotiateReply()
+			reply.SetNotPassword()
+			_, err := s.c.Write(reply.Bytes())
+			return err
+		}
+		if a.Method() == MethodUsernamePassword {
+			// second supported
+			isSupported = true
+			authenticator = a
+		}
+	}
+	if !isSupported {
+		return ErrMethodNotSupport
+	}
+
 	// 协商成功，返回用户名密码认证
 	reply := NewServerNegotiateReply()
 	reply.SetUsernamePassword()
@@ -135,7 +156,7 @@ func (s *serverSession) authenticate(ctx context.Context) error {
 	}
 	s.log.DebugF(ctx, "clientRequest", clientRequest)
 	// 认证
-	err = s.authenticator.Authenticate(ctx, clientRequest.UNAME, clientRequest.PASSWD)
+	err = authenticator.Authenticate(ctx, clientRequest.UNAME, clientRequest.PASSWD)
 	reply2 := NewUsernamePasswordReply()
 	if err != nil {
 		s.log.ErrorF(ctx, "authenticate-failure", err)

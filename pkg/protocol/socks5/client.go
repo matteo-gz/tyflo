@@ -100,6 +100,7 @@ func (c *Client) authenticateWithUserPassword(ctx context.Context, user, passwor
 	}
 	switch r.Method {
 	case MethodNoAuthenticationRequired:
+		c.log.DebugF(ctx, "no authentication required")
 		return nil
 	case MethodUsernamePassword:
 		req := NewUsernamePasswordReq()
