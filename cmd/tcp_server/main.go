@@ -4,16 +4,18 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/matteo-gz/tyflo/pkg/config"
 	"log"
 	"math"
 	"net"
 	"time"
+
+	"github.com/matteo-gz/tyflo/pkg/config"
 )
 
 type Conf struct {
 	Addr      string `yaml:"addr"`
 	ReplyTime uint   `yaml:"reply_time"`
+	Type      string `yaml:"type"`
 }
 
 var flagConfig string
@@ -50,9 +52,12 @@ func main() {
 			fmt.Println("Error accepting: ", err.Error())
 			continue
 		}
-
-		// 处理连接
-		go handleConn(conn, c.ReplyTime)
+		switch c.Type {
+		case "tcp":
+			go handleConn(conn, c.ReplyTime)
+		case "http":
+			go handleConnV1(conn)
+		}
 	}
 }
 
@@ -69,7 +74,9 @@ func handleConn(conn net.Conn, ReplyTime uint) {
 			default:
 				n, err := conn.Read(buf)
 				if err != nil {
-
+					log.Println("read err:", err)
+					cancel()
+					return
 				} else {
 					ch <- buf[:n]
 				}
@@ -95,6 +102,7 @@ func handleConn(conn net.Conn, ReplyTime uint) {
 				}
 				err = writeData(conn, buf)
 				if err != nil {
+					log.Println("write err:", err)
 					cancel()
 					return
 				}
