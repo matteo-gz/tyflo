@@ -15,12 +15,8 @@ type Client struct {
 	conf *ssh.ClientConfig
 }
 
-func NewClient(file, addr, user string) (c *Client, err error) {
-	privateKey, err := os.ReadFile(file)
-	if err != nil {
-		return
-	}
-	key, err := ssh.ParseRawPrivateKey(privateKey)
+func NewClientByPrivateKey(file, addr, user string) (c *Client, err error) {
+	key, err := ssh.ParseRawPrivateKey([]byte(file))
 	if err != nil {
 		return
 	}
@@ -44,6 +40,13 @@ func NewClient(file, addr, user string) (c *Client, err error) {
 	}
 	go c.retry()
 	return
+}
+func NewClient(file, addr, user string) (c *Client, err error) {
+	privateKey, err := os.ReadFile(file)
+	if err != nil {
+		return
+	}
+	return NewClientByPrivateKey(string(privateKey), addr, user)
 }
 func NewClientByPassword(pass, addr, user string) (c *Client, err error) {
 	c = &Client{

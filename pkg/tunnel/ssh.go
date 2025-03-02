@@ -12,6 +12,7 @@ import (
 type SshI interface {
 	Connect(file, username, host string, port int) error
 	ConnectByPassword(password, username, host string, port int) error
+	ConnectByPrivateKey(privateKey, username, host string, port int) error
 	Start(serverPort int) error
 	Close() error
 }
@@ -27,6 +28,10 @@ type SshImpl struct {
 
 func (s *SshImpl) Connect(file, username, host string, port int) (err error) {
 	s.conn, err = ssh.NewClient(file, fmt.Sprintf("%v:%v", host, port), username)
+	return err
+}
+func (s *SshImpl) ConnectByPrivateKey(privateKey, username, host string, port int) (err error) {
+	s.conn, err = ssh.NewClientByPrivateKey(privateKey, fmt.Sprintf("%v:%v", host, port), username)
 	return err
 }
 func (s *SshImpl) ConnectByPassword(password, username, host string, port int) (err error) {
