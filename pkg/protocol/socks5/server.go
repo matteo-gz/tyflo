@@ -55,7 +55,9 @@ func NewServer(opts ...Option) *Server {
 	}
 	return s
 }
-
+func (s *Server) Stop() error {
+	return s.l.Close()
+}
 func (s *Server) Start(ctx context.Context, addr string) (err error) {
 	a, err := net.ResolveTCPAddr(tcp, addr)
 	if err != nil {
