@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"github.com/matteo-gz/tyflo/pkg/tunnel"
 	"log"
@@ -41,11 +42,13 @@ func main() {
 		return
 	}
 	log.Println("c", c)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	st := tunnel.NewSshTunnel()
 	if c.TypeX == "pass" {
-		err = st.ConnectByPassword(c.Pass, c.User, c.SshHost, c.SshPort)
+		err = st.ConnectByPassword(ctx, c.Pass, c.User, c.SshHost, c.SshPort)
 	} else if c.TypeX == "file" {
-		err = st.Connect(c.File, c.User, c.SshHost, c.SshPort)
+		err = st.Connect(ctx, c.File, c.User, c.SshHost, c.SshPort)
 	} else {
 		log.Println("type: file|pass")
 		return

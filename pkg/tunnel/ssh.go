@@ -10,10 +10,11 @@ import (
 )
 
 type SshI interface {
-	Connect(file, username, host string, port int) error
-	ConnectByPassword(password, username, host string, port int) error
-	ConnectByPrivateKey(privateKey, username, host string, port int) error
+	Connect(ctx context.Context, file, username, host string, port int) error
+	ConnectByPassword(ctx context.Context, password, username, host string, port int) error
+	ConnectByPrivateKey(ctx context.Context, privateKey, username, host string, port int) error
 	Start(serverPort int) error
+	Status() bool
 	Close() error
 }
 
@@ -22,20 +23,25 @@ func NewSshTunnel() SshI {
 }
 
 type SshImpl struct {
-	conn *ssh.Client
-	svc  *socks5.Server
+	conn   *ssh.Client
+	svc    *socks5.Server
+	cancel context.CancelFunc
 }
 
-func (s *SshImpl) Connect(file, username, host string, port int) (err error) {
-	s.conn, err = ssh.NewClient(file, fmt.Sprintf("%v:%v", host, port), username)
+func (s *SshImpl) Status() bool {
+	return true
+}
+
+func (s *SshImpl) Connect(ctx context.Context, file, username, host string, port int) (err error) {
+	s.conn, err = ssh.NewClient(ctx, file, fmt.Sprintf("%v:%v", host, port), username)
 	return err
 }
-func (s *SshImpl) ConnectByPrivateKey(privateKey, username, host string, port int) (err error) {
-	s.conn, err = ssh.NewClientByPrivateKey(privateKey, fmt.Sprintf("%v:%v", host, port), username)
+func (s *SshImpl) ConnectByPrivateKey(ctx context.Context, privateKey, username, host string, port int) (err error) {
+	s.conn, err = ssh.NewClientByPrivateKey(ctx, privateKey, fmt.Sprintf("%v:%v", host, port), username)
 	return err
 }
-func (s *SshImpl) ConnectByPassword(password, username, host string, port int) (err error) {
-	s.conn, err = ssh.NewClientByPassword(password, fmt.Sprintf("%v:%v", host, port), username)
+func (s *SshImpl) ConnectByPassword(ctx context.Context, password, username, host string, port int) (err error) {
+	s.conn, err = ssh.NewClientByPassword(ctx, password, fmt.Sprintf("%v:%v", host, port), username)
 	return err
 }
 func (s *SshImpl) Start(serverPort int) (err error) {
@@ -45,17 +51,20 @@ func (s *SshImpl) Start(serverPort int) (err error) {
 		socks5.WithDialer(s.conn),
 		socks5.WithAuthenticator(socks5.NoAuthenticator{}),
 	)
-	err = s.svc.Start(context.Background(), fmt.Sprintf(":%d", serverPort))
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	err = s.svc.Start(ctx, fmt.Sprintf(":%d", serverPort))
 	return err
 }
 
 func (s *SshImpl) Close() error {
 	var errs []error
-	if s.conn != nil {
-		errs = append(errs, s.conn.Close())
-	}
+	s.cancel()
 	if s.svc != nil {
 		errs = append(errs, s.svc.Stop())
+	}
+	if s.conn != nil {
+		errs = append(errs, s.conn.Close())
 	}
 	return errors.Join(errs...)
 }

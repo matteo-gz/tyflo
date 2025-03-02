@@ -74,6 +74,7 @@ func (s *Server) accept(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			s.log.DebugF(ctx, "socks5 server accept leaving")
 			return
 		default:
 			c, err := s.l.AcceptTCP()

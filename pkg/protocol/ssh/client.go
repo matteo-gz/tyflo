@@ -15,7 +15,7 @@ type Client struct {
 	conf *ssh.ClientConfig
 }
 
-func NewClientByPrivateKey(file, addr, user string) (c *Client, err error) {
+func NewClientByPrivateKey(ctx context.Context, file, addr, user string) (c *Client, err error) {
 	key, err := ssh.ParseRawPrivateKey([]byte(file))
 	if err != nil {
 		return
@@ -38,17 +38,17 @@ func NewClientByPrivateKey(file, addr, user string) (c *Client, err error) {
 	if err != nil {
 		return nil, err
 	}
-	go c.retry()
+	go c.retry(ctx)
 	return
 }
-func NewClient(file, addr, user string) (c *Client, err error) {
+func NewClient(ctx context.Context, file, addr, user string) (c *Client, err error) {
 	privateKey, err := os.ReadFile(file)
 	if err != nil {
 		return
 	}
-	return NewClientByPrivateKey(string(privateKey), addr, user)
+	return NewClientByPrivateKey(ctx, string(privateKey), addr, user)
 }
-func NewClientByPassword(pass, addr, user string) (c *Client, err error) {
+func NewClientByPassword(ctx context.Context, pass, addr, user string) (c *Client, err error) {
 	c = &Client{
 		addr: addr,
 		conf: &ssh.ClientConfig{
@@ -63,7 +63,7 @@ func NewClientByPassword(pass, addr, user string) (c *Client, err error) {
 	if err != nil {
 		return nil, err
 	}
-	go c.retry()
+	go c.retry(ctx)
 	return
 }
 func (c *Client) connect() error {
@@ -74,10 +74,13 @@ func (c *Client) connect() error {
 	c.c = sshClient
 	return nil
 }
-func (c *Client) retry() {
+func (c *Client) retry(ctx context.Context) {
 	ch := make(chan struct{}, 1)
 	for {
 		select {
+		case <-ctx.Done():
+			log.Println("ssh client disconnected,give up retry.")
+			return
 		case <-ch:
 			if err := c.connect(); err != nil {
 				log.Println("connect retry", err)
