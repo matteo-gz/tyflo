@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/matteo-gz/tyflo/pkg/logger"
 	"github.com/matteo-gz/tyflo/pkg/protocol/socks5"
@@ -44,6 +45,13 @@ func (s *SshImpl) Start(serverPort int) (err error) {
 }
 
 func (s *SshImpl) Close() error {
+	var errs []error
+	if s.conn != nil {
+		errs = append(errs, s.conn.Close())
+	}
+	if s.svc != nil {
+		errs = append(errs, s.svc.Stop())
+	}
 	_ = s.conn.Close()
-	return s.svc.Stop()
+	return errors.Join(errs...)
 }
