@@ -59,7 +59,9 @@ func (s *SshImpl) Start(serverPort int) (err error) {
 
 func (s *SshImpl) Close() error {
 	var errs []error
-	s.cancel()
+	if s.cancel != nil {
+		s.cancel()
+	}
 	if s.svc != nil {
 		errs = append(errs, s.svc.Stop())
 	}
