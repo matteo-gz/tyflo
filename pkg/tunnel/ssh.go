@@ -52,6 +52,5 @@ func (s *SshImpl) Close() error {
 	if s.svc != nil {
 		errs = append(errs, s.svc.Stop())
 	}
-	_ = s.conn.Close()
 	return errors.Join(errs...)
 }
