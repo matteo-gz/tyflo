@@ -1,24 +1,22 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"fmt"
+	"github.com/matteo-gz/tyflo/pkg/tunnel"
+	"log"
+
 	"github.com/matteo-gz/tyflo/pkg/config"
 	"github.com/matteo-gz/tyflo/pkg/io"
-	"github.com/matteo-gz/tyflo/pkg/logger"
-	"github.com/matteo-gz/tyflo/pkg/protocol/socks5"
-	"github.com/matteo-gz/tyflo/pkg/protocol/ssh"
-	"log"
 )
 
 type Conf struct {
-	File  string `yaml:"file,omitempty"`
-	Addr  string `yaml:"addr"`
-	User  string `yaml:"user"`
-	Port  int    `yaml:"port"`
-	TypeX string `yaml:"type"`
-	Pass  string `yaml:"pass,omitempty"`
+	File    string `yaml:"file,omitempty"`
+	SshHost string `yaml:"ssh_host"`
+	SshPort int    `yaml:"ssh_port"`
+	User    string `yaml:"user"`
+	Port    int    `yaml:"port"`
+	TypeX   string `yaml:"type"`
+	Pass    string `yaml:"pass,omitempty"`
 }
 
 func (c *Conf) get() interface{} {
@@ -43,13 +41,11 @@ func main() {
 		return
 	}
 	log.Println("c", c)
-	var (
-		sshc *ssh.Client
-	)
+	st := tunnel.NewSshTunnel()
 	if c.TypeX == "pass" {
-		sshc, err = ssh.NewClientByPassword(c.Pass, c.Addr, c.User)
+		err = st.ConnectByPassword(c.Pass, c.User, c.SshHost, c.SshPort)
 	} else if c.TypeX == "file" {
-		sshc, err = ssh.NewClient(c.File, c.Addr, c.User)
+		err = st.Connect(c.File, c.User, c.SshHost, c.SshPort)
 	} else {
 		log.Println("type: file|pass")
 		return
@@ -58,9 +54,8 @@ func main() {
 		log.Println(err)
 		return
 	}
-	l := logger.NewDefaultLogger()
-	ss := socks5.NewServer(l, sshc)
-	err = ss.Start(context.Background(), fmt.Sprintf(":%d", c.Port))
+	defer st.Close()
+	err = st.Start(c.Port)
 	if err != nil {
 		log.Println(err)
 		return

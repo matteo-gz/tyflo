@@ -30,6 +30,7 @@ const (
 var (
 	ErrVersionNotSupport = errors.New("version not support")
 	ErrVersionNotV5      = errors.New("version is not 5")
+	ErrBadVersion        = errors.New("bad version")
 	ErrMethodLen         = errors.New("method len is 0")
 	ErrCmdNotSupport     = errors.New("cmd not support")
 	ErrRsvInvalid        = errors.New("request rsv invalid")
@@ -106,6 +107,10 @@ func (s *ServerNegotiateReply) Bytes() []byte {
 func (s *ServerNegotiateReply) SetNotPassword() {
 	s.Version = Version5
 	s.Method = MethodNoAuthenticationRequired
+}
+func (s *ServerNegotiateReply) SetUsernamePassword() {
+	s.Version = Version5
+	s.Method = MethodUsernamePassword
 }
 func (s *ServerNegotiateReply) Decode(r io.Reader) error {
 	buf := make([]byte, 2)
@@ -360,16 +365,48 @@ func (req *UsernamePasswordReq) Bytes() []byte {
 	return data
 }
 func (req *UsernamePasswordReq) Decode(r io.Reader) (err error) {
-	return nil // todo
+	// 读取版本和用户名长度
+	buf := make([]byte, 2)
+	_, err = io.ReadFull(r, buf)
+	if err != nil {
+		return
+	}
+	req.VER = buf[0]
+	if req.VER != UserPasswordVersion {
+		return ErrBadVersion
+	}
+	req.ULEN = buf[1]
+	// 读取用户名
+	buf = make([]byte, req.ULEN)
+	_, err = io.ReadFull(r, buf)
+	if err != nil {
+		return
+	}
+	req.UNAME = string(buf)
+	// 读取密码长度
+	buf = make([]byte, 1)
+	_, err = io.ReadFull(r, buf)
+	if err != nil {
+		return
+	}
+	req.PLEN = buf[0]
+	// 读取密码
+	buf = make([]byte, req.PLEN)
+	_, err = io.ReadFull(r, buf)
+	if err != nil {
+		return
+	}
+	req.PASSWD = string(buf)
+	return nil
 }
 func (req *UsernamePasswordReq) SetUsernamePassword(user, password string) error {
 	var l1, l2 int
 	l1 = len(user)
 	l2 = len(password)
-	if l1 < 1 || l1 > 255 {
+	if l1 > 255 {
 		return ErrUserPasswordLen
 	}
-	if l2 < 1 || l2 > 255 {
+	if l2 > 255 {
 		return ErrUserPasswordLen
 	}
 	req.VER = UserPasswordVersion
@@ -388,6 +425,17 @@ type UsernamePasswordReply struct {
 	STATUS byte
 }
 
+func (reply *UsernamePasswordReply) Bytes() []byte {
+	return []byte{reply.VER, reply.STATUS}
+}
+func (reply *UsernamePasswordReply) SetSuccess() {
+	reply.VER = UserPasswordVersion
+	reply.STATUS = UserPasswordOk
+}
+func (reply *UsernamePasswordReply) SetFailure() {
+	reply.VER = UserPasswordVersion
+	reply.STATUS = UserPasswordFailure
+}
 func (reply *UsernamePasswordReply) Decode(r io.Reader) (err error) {
 	buf := make([]byte, 2)
 	n, err := io.ReadFull(r, buf)
@@ -397,7 +445,7 @@ func (reply *UsernamePasswordReply) Decode(r io.Reader) (err error) {
 	reply.VER = buf[0]
 	reply.STATUS = buf[1]
 	if reply.VER != UserPasswordVersion {
-		return ErrVersionNotV5
+		return ErrBadVersion
 	}
 	if reply.STATUS != UserPasswordOk {
 		return ErrReplyFail
@@ -411,4 +459,5 @@ func NewUsernamePasswordReply() *UsernamePasswordReply {
 const (
 	UserPasswordVersion = 1
 	UserPasswordOk      = 0
+	UserPasswordFailure = 1
 )

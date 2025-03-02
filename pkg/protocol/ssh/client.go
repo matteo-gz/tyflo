@@ -100,3 +100,6 @@ func (c *Client) DialContext(ctx context.Context, addr string) (conn net.Conn, e
 	conn, err = c.c.DialContext(ctx, "tcp", addr)
 	return conn, err
 }
+func (c *Client) Close() error {
+	return c.c.Close()
+}
