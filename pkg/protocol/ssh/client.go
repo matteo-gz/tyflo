@@ -2,11 +2,12 @@ package ssh
 
 import (
 	"context"
-	"golang.org/x/crypto/ssh"
 	"log"
 	"net"
 	"os"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 type Client struct {
@@ -32,6 +33,7 @@ func NewClientByPrivateKey(ctx context.Context, file, addr, user string) (c *Cli
 				ssh.PublicKeys(sig),
 			},
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Timeout:         contextToTimeout(ctx),
 		},
 	}
 	err = c.connect()
@@ -48,7 +50,15 @@ func NewClient(ctx context.Context, file, addr, user string) (c *Client, err err
 	}
 	return NewClientByPrivateKey(ctx, string(privateKey), addr, user)
 }
+func contextToTimeout(ctx context.Context) time.Duration {
+	timeout := 30 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = time.Until(deadline)
+	}
+	return timeout
+}
 func NewClientByPassword(ctx context.Context, pass, addr, user string) (c *Client, err error) {
+
 	c = &Client{
 		addr: addr,
 		conf: &ssh.ClientConfig{
@@ -57,6 +67,7 @@ func NewClientByPassword(ctx context.Context, pass, addr, user string) (c *Clien
 				ssh.Password(pass),
 			},
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Timeout:         contextToTimeout(ctx),
 		},
 	}
 	err = c.connect()
